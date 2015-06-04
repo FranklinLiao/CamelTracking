@@ -1,7 +1,0 @@
-2015-03-10 17:28:44 WARN [com.franklin.server.ThreadServer] Server: GOOD,OK
-2015-03-10 17:28:44 WARN [com.franklin.server.ThreadServer] Client: J:11620.2087W:3958.3897T:20150310092101:13503196704
-数据库连接获取失败!
-Exception in thread "Thread-0" java.lang.NullPointerException
-	at com.franklin.db.DbUtil.insert(DbUtil.java:17)
-	at com.franklin.server.ThreadServer.run(ThreadServer.java:54)
-	at java.lang.Thread.run(Thread.java:745)

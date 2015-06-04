@@ -12,6 +12,13 @@ public class PropertiesUtil {
 	private static String urlString="";
 	private static String username="";
 	private static String password="";
+	private static String otherServerUrlString=""; //用于贾博士
+	private static String otherServerUsername="";
+	private static String otherServerPassword="";
+	//tcp连接信息   贾博士
+	private static String otherServerString="";
+	private static int otherServerPort=0;
+	
 	private static int port=0;
 	private static double lat0 =0;
 	private static double lng0 = 0;
@@ -27,6 +34,14 @@ public class PropertiesUtil {
             urlString = prop.getProperty("url");
             username=prop.getProperty("username");
             password=prop.getProperty("password");
+            //otherServer --贾博士
+            otherServerUrlString = prop.getProperty("otherServerUrl").trim();
+            otherServerUsername = prop.getProperty("otherServerUsername").trim();
+            otherServerPassword = prop.getProperty("otherServerPassword").trim();
+            //tcp  贾博士
+            otherServerString = prop.getProperty("otherServer").trim();
+            otherServerPort = Integer.parseInt(prop.getProperty("otherServerPort").trim());
+            
             port = Integer.parseInt(prop.getProperty("port").trim());
             lat0 = Double.parseDouble(prop.getProperty("lat0").trim());
             lng0 = Double.parseDouble(prop.getProperty("lng0").trim());
@@ -56,4 +71,21 @@ public class PropertiesUtil {
 	public static String getPassword() {
 		return password;
 	}
+	public static String getOtherServerUrlString() {
+		return otherServerUrlString;
+	}
+	public static String getOtherServerUsername() {
+		return otherServerUsername;
+	}
+	public static String getOtherServerPassword() {
+		return otherServerPassword;
+	}
+	public static String getOtherServerString() {
+		return otherServerString;
+	}
+	public static int getOtherServerPort() {
+		return otherServerPort;
+	}
+	
+	
 }

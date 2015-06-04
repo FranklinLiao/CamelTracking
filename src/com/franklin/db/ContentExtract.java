@@ -35,7 +35,9 @@ public class ContentExtract {
 			lonString = infoString.substring(firstmaohao+1,wchar);
 			lonString = numFormater(lonString); 
 			double tmplng = Double.parseDouble(lonString);
-			tmplng += lng0; //偏移量
+			if(tmplng>0) { //只有有效的经度才加上偏移量
+				tmplng += lng0; 
+			}
 			BigDecimal bDec1 = new BigDecimal(tmplng);
 			bDec1 = bDec1.setScale(6, BigDecimal.ROUND_DOWN);
 			lonString = Double.toString(bDec1.doubleValue());
@@ -47,7 +49,9 @@ public class ContentExtract {
 			latString = infoString.substring(secondmaohao+1,tchar);
 			latString = numFormater(latString);
 			double tmplat = Double.parseDouble(latString);
-			tmplat += lat0;
+			if(tmplat>0) {  //只有有效的纬度才加上偏移量
+				tmplat += lat0;
+			}
 			BigDecimal bDec = new BigDecimal(tmplat);
 			bDec = bDec.setScale(6, BigDecimal.ROUND_DOWN);
 			latString = Double.toString(bDec.doubleValue());
