@@ -44,7 +44,10 @@ public class Server {
 				try {
 					socket.receive(dp); //接收包
 					String recvInfo = new String(dp.getData(),0,dp.getLength()); //将包中内容取出
-					ThreadServer threadServer = new ThreadServer(recvInfo);  
+					
+					//System.out.println(recvInfo);//调试用的
+					
+					ThreadServer threadServer = new ThreadServer(recvInfo,dp.getSocketAddress());  
 					threadServer.start(); 
 				} catch (IOException  e) {
 					// TODO Auto-generated catch block

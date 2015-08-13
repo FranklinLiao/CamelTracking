@@ -1,31 +1,55 @@
 package com.franklin.db;
 
-import java.net.ConnectException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.PseudoColumnUsage;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 
+import com.franklin.domain.DeviceExtraInfoObject;
+import com.franklin.domain.PolygonBoundryObject;
+import com.franklin.domain.SectorBoundryObject;
+
 public class DbUtil {
 	private static PreparedStatement psmtPreparedStatement = null;
-	private static String insertSql = "insert into AnimalGPSSystem (DeviceId,lon,lat,date) values(?,?,?,?);";
+	private static String insertSql = "insert into AnimalGPSSystem (DeviceId,lon,lat,date,status) values(?,?,?,?,?);";
 	private static String judgeAroundSql = "select count(*) from AnimalGPSSystem where date > ? and date < ? and DeviceId = ?";
 	private static String judgeSameSql = "select count(*) from AnimalGPSSystem where date= ? and DeviceId = ?";
+	//deviceextrainfo
+	private static String selectDeviceExtraInfoSql = "select * from Device where DeviceId = ?";
+	//userextrainfo
+	private static String selectUserExtraInfoSql = "select * from User where phoneNum=?";
+	//电子围栏 
+	private static String getDeviceFenceStatusSql = "select isFenceSend from Device where DeviceId = ?";
+	private static String getPhoneNoSql = "select UserPhone from Device where DeviceId = ?";
+ 	private static String getSectorBoundrySql = "select FenceID,Lat,Lon,BgnAng,EndAng,R,RThres from SectorFence where PhoneNum = ? and UseStatus=1";
+ 	
+	private static String getPolygonBoundrySql = "select * from PolygonFence where PhoneNum = ? and UseStatus=1";
+ 	//更新信息
+	private static String updateUserExtraInfoSql="update User set isAlarmSend = ?,isDataSend = ? where phoneNum = ?";
+	private static String updateBatterySql = "update Device set battery=? where DeviceId = ?";
+	private static String udpateIsFenceSend = "update Device set isFenceSend=1 where DeviceId = ?";
 	//otherServer 贾博士
 	private static String otherServerInsertSql = "insert into t_devicetrajectory (Device,Longitude,Latitude,AddDate) value(?,?,?,?)";
 	//通过判断自己数据库中是否有重复数据来决定该数据是否插入贾博士和自己的数据库  因此先插贾博士数据库 然后插自己数据库
 	private static Logger insertTimeLogger = Logger.getLogger("inserttime");
 	private static int minutes = 0;
-	
+	private static double newlat0 = 0;
+	private static double newlng0 = 0;
+	private static double lat0 = 0;
+	private static double lng0 = 0;
 	static { //在类加载时执行
 		minutes = PropertiesUtil.getMinutes();
+		newlat0 = PropertiesUtil.getNewlat0();
+		newlng0 = PropertiesUtil.getNewlng0();
+		lat0 = PropertiesUtil.getLat0();
+		lng0 = PropertiesUtil.getLng0();
 	}
 	
 	public static boolean insert(ContentExtract contentExtract) { 
@@ -37,11 +61,16 @@ public class DbUtil {
 		}
 		try {
 			//PreparedStatement起始从1开始
-			String deviceId = contentExtract.getdeviceID();
+			String deviceId = contentExtract.getDeviceID();
 			String lonString = contentExtract.getLonString();
 			String latString = contentExtract.getLatString();
 			String time = contentExtract.getTime();
+			int status = contentExtract.getStatus();
 			if(deviceId!=null&&lonString!=null&&latString!=null&&time!=null) {
+				//对偏移量进行调整
+				lonString = new ContentExtract().modifyOffset(lonString, lng0, newlng0);
+				//对偏移量进行调整
+				latString = new ContentExtract().modifyOffset(latString, lat0, newlat0);
 				if(time.startsWith("0")) { //time是以0开始的
 					SimpleDateFormat f = new SimpleDateFormat("yyyyMMddHHmmss");  
 			        Date date = new Date();  
@@ -63,6 +92,7 @@ public class DbUtil {
 					psmtPreparedStatement.setString(2, lonString);
 					psmtPreparedStatement.setString(3, latString);
 					psmtPreparedStatement.setString(4, time);
+					psmtPreparedStatement.setInt(5, status);
 					long insertStartTime = System.currentTimeMillis();
 					psmtPreparedStatement.executeUpdate();
 					long insertEndTime = System.currentTimeMillis();
@@ -272,6 +302,405 @@ public class DbUtil {
 		}
 	}
 	
+	public static void updateBatteryStatus(int battery,String deviceId) {
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null) {
+			return;
+		}			
+		try {
+			psmtPreparedStatement = conn.prepareStatement(updateBatterySql);
+			psmtPreparedStatement.setInt(1, battery); 
+			psmtPreparedStatement.setString(2, deviceId); 
+			psmtPreparedStatement.executeUpdate();
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();//释放
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public static void updateIsFenceSend(String deviceId) {
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null) {
+			return;
+		}			
+		try {
+			psmtPreparedStatement = conn.prepareStatement(udpateIsFenceSend);
+			psmtPreparedStatement.setString(1, deviceId); 
+			psmtPreparedStatement.executeUpdate();
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();//释放
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public static void updateUserExtraInfo(int alarmFlag,int hourFlag,String phoneNo) {
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null) {
+			return;
+		}			
+		try {
+			psmtPreparedStatement = conn.prepareStatement(updateUserExtraInfoSql);
+			psmtPreparedStatement.setInt(1, alarmFlag); 
+			psmtPreparedStatement.setInt(2, hourFlag); 
+			psmtPreparedStatement.setString(3, phoneNo); 
+			psmtPreparedStatement.executeUpdate();
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();//释放
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public static String getPhoneNo(String deviceId) {
+		String phoneNo = null;
+		ResultSet rs = null;
+		//Connection conn = DbCon.getDbConInstance().getConnection();
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null) {
+			return null;
+		}
+		try {
+			psmtPreparedStatement = conn.prepareStatement(getPhoneNoSql);
+			psmtPreparedStatement.setString(1, deviceId); 
+			rs = psmtPreparedStatement.executeQuery();
+			while(rs.next()) {
+				phoneNo = rs.getString(1);
+				break;
+			}
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		try {
+			if(null!=rs) {
+				rs.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+	//	DbCon.getDbConInstance().closeConnection(conn);
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return phoneNo;
+	}
+	
+	public static int getDeviceFenceStatus(String deviceId) {
+		int isFenceSend  = 0;
+		ResultSet rs = null;
+		//Connection conn = DbCon.getDbConInstance().getConnection();
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null) {
+			return 0;
+		}
+		try {
+			psmtPreparedStatement = conn.prepareStatement(getDeviceFenceStatusSql);
+			psmtPreparedStatement.setString(1, deviceId); 
+			rs = psmtPreparedStatement.executeQuery();
+			while(rs.next()) {
+				isFenceSend = rs.getInt(1);
+				break;
+			}
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		try {
+			if(null!=rs) {
+				rs.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+	//	DbCon.getDbConInstance().closeConnection(conn);
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return isFenceSend;
+	}
+	
+	public static SectorBoundryObject getSectorBoundry(String phoneNo) {
+		SectorBoundryObject boundry = null;
+		ResultSet rs = null;
+		//Connection conn = DbCon.getDbConInstance().getConnection();
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null || phoneNo==null) {
+			return boundry;
+		}
+		try {
+			psmtPreparedStatement = conn.prepareStatement(getSectorBoundrySql);
+			psmtPreparedStatement.setString(1, phoneNo); //判断是否是当天的数据 
+			rs = psmtPreparedStatement.executeQuery();
+			while(rs.next()) {
+				String phoneNum = phoneNo;
+				double lat = rs.getDouble("Lat");
+				double lon = rs.getDouble("Lon");
+				int startangle = rs.getInt("BgnAng");
+				int endangle = rs.getInt("EndAng");
+				int radius = rs.getInt("R");
+				int throld = rs.getInt("RThres");
+				boundry = new SectorBoundryObject(phoneNum,lat,lon,startangle,endangle
+						,radius,throld);
+				break;
+			}
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		try {
+			if(null!=rs) {
+				rs.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+	//	DbCon.getDbConInstance().closeConnection(conn);
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return boundry;
+	}
+	
+	public static PolygonBoundryObject getPolyonBoundry(String phoneNo) {
+		PolygonBoundryObject boundry = null;
+		ResultSet rs = null;
+		//Connection conn = DbCon.getDbConInstance().getConnection();
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null || phoneNo==null) {
+			return boundry;
+		}
+		try {
+			psmtPreparedStatement = conn.prepareStatement(getPolygonBoundrySql);
+			psmtPreparedStatement.setString(1, phoneNo); //判断是否是当天的数据 
+			rs = psmtPreparedStatement.executeQuery();
+			while(rs.next()) {
+				double lat = rs.getDouble("lat");
+				double lon = rs.getDouble("lon");
+				List rList = new ArrayList<>();
+				for(int index=0;index<=39;index++) {
+					rList.add(intFormat(rs.getInt("R"+indexFormat(index))));
+				}
+				int throld = rs.getInt("RThres");
+				boundry = new PolygonBoundryObject(phoneNo,lat,lon,rList,throld);
+				break;
+			}
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		try {
+			if(null!=rs) {
+				rs.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+	//	DbCon.getDbConInstance().closeConnection(conn);
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return boundry;
+	}
+	
+	public static DeviceExtraInfoObject getDeviceExtraInfo(String deviceId) {
+		DeviceExtraInfoObject deviceExtraInfoObject = null;
+		ResultSet rs = null;
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null || deviceId==null) {
+			return deviceExtraInfoObject;
+		}
+		try {
+			psmtPreparedStatement = conn.prepareStatement(selectDeviceExtraInfoSql);
+			psmtPreparedStatement.setString(1, deviceId); 
+			rs = psmtPreparedStatement.executeQuery();
+			while(rs.next()) {
+				int isAlarmSend = rs.getInt("isAlarmSend");
+				int alarmFlag = 0;
+				int startHour = 0;
+				int endHour = 0;
+				int intervalHour = 0;
+				int isDataSend = rs.getInt("isDataSend");
+				deviceExtraInfoObject = new DeviceExtraInfoObject(alarmFlag,isAlarmSend,startHour,endHour,intervalHour,isDataSend);
+				break;
+			}
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		try {
+			if(null!=rs) {
+				rs.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+	//	DbCon.getDbConInstance().closeConnection(conn);
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return deviceExtraInfoObject;
+	}
+	
+	public static DeviceExtraInfoObject getUserExtraInfo(String phoneNum) {
+		DeviceExtraInfoObject deviceExtraInfoObject = null;
+		ResultSet rs = null;
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null || phoneNum==null) {
+			return deviceExtraInfoObject;
+		}
+		try {
+			psmtPreparedStatement = conn.prepareStatement(selectUserExtraInfoSql);
+			psmtPreparedStatement.setString(1, phoneNum); 
+			rs = psmtPreparedStatement.executeQuery();
+			while(rs.next()) {
+				int isAlarmSend = 0;
+				int alarmFlag = rs.getInt("alarmFlag");
+				int startHour = rs.getInt("startHour");
+				int endHour = rs.getInt("endHour");
+				int intervalHour = rs.getInt("intervalHour");
+				int isDataSend = 0;
+				deviceExtraInfoObject = new DeviceExtraInfoObject(alarmFlag,isAlarmSend,startHour,endHour,intervalHour,isDataSend);
+				break;
+			}
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		try {
+			if(null!=rs) {
+				rs.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+	//	DbCon.getDbConInstance().closeConnection(conn);
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return deviceExtraInfoObject;
+	}
+	
+
+	public static String intFormat(int intValue) {
+		return String.format("%05d", intValue);
+	}
+	
+	public static String indexFormat(int index) {
+		return String.format("%02d", index);
+	}
 }
 
 

@@ -23,7 +23,8 @@ public class PropertiesUtil {
 	private static double lat0 =0;
 	private static double lng0 = 0;
 	private static int minutes = 0;
-
+	private static double newlat0 = 0;
+	private static double newlng0 = 0;
 
 	static {   
         Properties prop = new Properties();  
@@ -45,7 +46,9 @@ public class PropertiesUtil {
             port = Integer.parseInt(prop.getProperty("port").trim());
             lat0 = Double.parseDouble(prop.getProperty("lat0").trim());
             lng0 = Double.parseDouble(prop.getProperty("lng0").trim());
-            minutes = Integer.parseInt(prop.getProperty("minutes").trim());
+            newlat0 = Double.parseDouble(prop.getProperty("newlat0").trim());
+            newlng0 = Double.parseDouble(prop.getProperty("newlng0").trim());
+        	minutes = Integer.parseInt(prop.getProperty("minutes").trim());
         } catch (IOException e) {   
             e.printStackTrace();   
         }   
@@ -85,6 +88,12 @@ public class PropertiesUtil {
 	}
 	public static int getOtherServerPort() {
 		return otherServerPort;
+	}
+	public static double getNewlat0() {
+		return newlat0;
+	}
+	public static double getNewlng0() {
+		return newlng0;
 	}
 	
 	
