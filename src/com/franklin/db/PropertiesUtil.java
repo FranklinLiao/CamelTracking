@@ -19,7 +19,8 @@ public class PropertiesUtil {
 	private static String otherServerString="";
 	private static int otherServerPort=0;
 	
-	private static int port=0;
+	private static int tcp_port=0;
+	private static int udp_port=0;
 	private static double lat0 =0;
 	private static double lng0 = 0;
 	private static int minutes = 0;
@@ -43,7 +44,8 @@ public class PropertiesUtil {
             otherServerString = prop.getProperty("otherServer").trim();
             otherServerPort = Integer.parseInt(prop.getProperty("otherServerPort").trim());
             
-            port = Integer.parseInt(prop.getProperty("port").trim());
+            tcp_port = Integer.parseInt(prop.getProperty("tcp_port").trim());
+            udp_port=Integer.parseInt(prop.getProperty("udp_port").trim());
             lat0 = Double.parseDouble(prop.getProperty("lat0").trim());
             lng0 = Double.parseDouble(prop.getProperty("lng0").trim());
             newlat0 = Double.parseDouble(prop.getProperty("newlat0").trim());
@@ -53,8 +55,12 @@ public class PropertiesUtil {
             e.printStackTrace();   
         }   
     }
-	public static int getPort() {
-		return port;
+	
+	public static int getTcp_port() {
+		return tcp_port;
+	}
+	public static int getUdp_port() {
+		return udp_port;
 	}
 	public static int getMinutes() {
 		return minutes;

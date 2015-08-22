@@ -21,10 +21,6 @@ import com.franklin.db.PropertiesUtil;
 import com.franklin.db.DbUtil;
 
 public class Server {
-	private static byte[] buf = new byte[2000]; //packet的大小为2000字节
-	private static DatagramPacket dp = new DatagramPacket(buf,buf.length);
-	private static DatagramSocket socket;
-	public static boolean flag = true; //用来判断Server是否已经停止
 	@SuppressWarnings("deprecation")
 	public static void main(String args[])  {
 		Properties props = new Properties();
@@ -35,33 +31,13 @@ public class Server {
 			// TODO Auto-generated catch block
 			e2.printStackTrace();
 		}
-		final int port = PropertiesUtil.getPort();
-		try {
-			ThreadList threadList = new ThreadList();   //用来处理ThreadServer存放的信息
-			threadList.start();
-			socket = new DatagramSocket(port);
-			while(true) {
-				try {
-					socket.receive(dp); //接收包
-					String recvInfo = new String(dp.getData(),0,dp.getLength()); //将包中内容取出
-					
-					//System.out.println(recvInfo);//调试用的
-					
-					ThreadServer threadServer = new ThreadServer(recvInfo,dp.getSocketAddress());  
-					threadServer.start(); 
-				} catch (IOException  e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} 
-			}
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		} finally {
-			if(socket!=null) {  
-				socket.close(); //socket关闭
-			}
-			flag = false; //标记Server结束，并通知ThreadList终止工作
-		}
+		int udp_port = PropertiesUtil.getUdp_port();
+		int tcp_port = PropertiesUtil.getTcp_port();
+
+		TcpServer tcpServer = new TcpServer(tcp_port);
+		tcpServer.start();		
+		UdpServer udpServer = new UdpServer(udp_port);   //用来处理ThreadServer存放的信息
+		udpServer.start();
+		System.out.println("tcp && udp starts!");
 	}
 }

@@ -32,9 +32,11 @@ public class DbUtil {
  	
 	private static String getPolygonBoundrySql = "select * from PolygonFence where PhoneNum = ? and UseStatus=1";
  	//更新信息
-	private static String updateUserExtraInfoSql="update User set isAlarmSend = ?,isDataSend = ? where phoneNum = ?";
+	private static String updateUserExtraInfoSql="update Device set isAlarmSend = ?,isDataSend = ? where DeviceId = ?";
 	private static String updateBatterySql = "update Device set battery=? where DeviceId = ?";
 	private static String udpateIsFenceSend = "update Device set isFenceSend=1 where DeviceId = ?";
+	private static String updateUserAlarmFlagSql = "update User set alarmFlag = ? where phoneNum = ?";
+	private static String updateDeviceAlarmSendFlagSql = "update Device set isAlarmSend = 0 where UserPhone in (select UserPhone from Device where DeviceId=?)";
 	//otherServer 贾博士
 	private static String otherServerInsertSql = "insert into t_devicetrajectory (Device,Longitude,Latitude,AddDate) value(?,?,?,?)";
 	//通过判断自己数据库中是否有重复数据来决定该数据是否插入贾博士和自己的数据库  因此先插贾博士数据库 然后插自己数据库
@@ -302,14 +304,14 @@ public class DbUtil {
 		}
 	}
 	
-	public static void updateBatteryStatus(int battery,String deviceId) {
+	public static void updateBatteryStatus(String battery,String deviceId) {
 		Connection conn = DbPool.getInstance().getConnection();
 		if(conn==null) {
 			return;
 		}			
 		try {
 			psmtPreparedStatement = conn.prepareStatement(updateBatterySql);
-			psmtPreparedStatement.setInt(1, battery); 
+			psmtPreparedStatement.setString(1, battery); 
 			psmtPreparedStatement.setString(2, deviceId); 
 			psmtPreparedStatement.executeUpdate();
 		} catch (SQLException e1) {
@@ -361,7 +363,37 @@ public class DbUtil {
 		}
 	}
 	
-	public static void updateUserExtraInfo(int alarmFlag,int hourFlag,String phoneNo) {
+	public static void updateDeviceAlarmSendFlag(String deviceId) {
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null) {
+			return;
+		}			
+		try {
+			psmtPreparedStatement = conn.prepareStatement(updateDeviceAlarmSendFlagSql);
+			psmtPreparedStatement.setString(1, deviceId); 
+			psmtPreparedStatement.executeUpdate();
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();//释放
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	
+	public static void updateUserExtraInfo(int alarmFlag,int hourFlag,String deviceId) {
 		Connection conn = DbPool.getInstance().getConnection();
 		if(conn==null) {
 			return;
@@ -370,7 +402,37 @@ public class DbUtil {
 			psmtPreparedStatement = conn.prepareStatement(updateUserExtraInfoSql);
 			psmtPreparedStatement.setInt(1, alarmFlag); 
 			psmtPreparedStatement.setInt(2, hourFlag); 
-			psmtPreparedStatement.setString(3, phoneNo); 
+			psmtPreparedStatement.setString(3, deviceId); 
+			psmtPreparedStatement.executeUpdate();
+		} catch (SQLException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();//释放
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public static void updateUserAlarmFlag(int alarmFlag,String userPhone) {
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null) {
+			return;
+		}			
+		try {
+			psmtPreparedStatement = conn.prepareStatement(updateUserAlarmFlagSql);
+			psmtPreparedStatement.setInt(1, alarmFlag); 
+			psmtPreparedStatement.setString(2, userPhone); 
 			psmtPreparedStatement.executeUpdate();
 		} catch (SQLException e1) {
 			// TODO Auto-generated catch block

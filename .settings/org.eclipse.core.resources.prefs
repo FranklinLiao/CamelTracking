@@ -1,6 +1,6 @@
 eclipse.preferences.version=1
 encoding//src/com/franklin/db/ContentExtract.java=UTF-8
 encoding//src/com/franklin/db/DbUtil.java=UTF-8
-encoding//src/com/franklin/server/ThreadServer.java=UTF-8
+encoding//src/com/franklin/server/UdpThreadServer.java=UTF-8
 encoding//src/config/prop.properties=UTF-8
 encoding/<project>=UTF-8

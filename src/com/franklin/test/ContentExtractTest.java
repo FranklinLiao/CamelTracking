@@ -2,7 +2,7 @@ package com.franklin.test;
 
 import com.franklin.db.ContentExtract;
 import com.franklin.db.DbUtil;
-import com.franklin.server.ThreadList;
+import com.franklin.server.UdpThreadList;
 
 import junit.framework.TestCase;
 
@@ -17,7 +17,7 @@ public class ContentExtractTest extends TestCase {
 		ContentExtract content = new ContentExtract(info);
 		content.infoParser();
 		DbUtil.insert(content);
-		ThreadList threadList = new ThreadList();   //用来处理ThreadServer存放的信息
+		UdpThreadList threadList = new UdpThreadList();   //用来处理ThreadServer存放的信息
 		//System.out.println(threadList.getInfoString(content));
 		//assertEquals("20160101020301",content.getTime());
 		//assertEquals("30304",content.getdeviceID());

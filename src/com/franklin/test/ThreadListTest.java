@@ -1,7 +1,7 @@
 package com.franklin.test;
 
 import com.franklin.db.ContentExtract;
-import com.franklin.server.ThreadList;
+import com.franklin.server.UdpThreadList;
 
 import junit.framework.TestCase;
 

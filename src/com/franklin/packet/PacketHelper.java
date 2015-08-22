@@ -22,7 +22,7 @@ import com.franklin.domain.DeviceExtraInfoObject;
 import com.franklin.domain.PolygonBoundryObject;
 import com.franklin.domain.SectorBoundryObject;
 import com.franklin.juhesdk.JsonParser;
-import com.franklin.server.ThreadList;
+import com.franklin.server.UdpThreadList;
 
 public class PacketHelper {
 	private static Logger logger = Logger.getLogger(PacketHelper.class);
@@ -33,7 +33,7 @@ public class PacketHelper {
 		//String client = new String(dp.getData(),0,dp.getLength());
 		//取出数据包中内容
 		if(client!=null&&client!="") {
-			if((client.startsWith("J") || client.startsWith("M"))) {
+			if(client.startsWith("bbb02") || client.startsWith("bbb03")) {
 				type = 2;
 			} else if(client.startsWith("bbb01")) {
 				type = 1;
@@ -63,14 +63,19 @@ public class PacketHelper {
 		return infoList;
 	}
 	
-	public boolean dealPosData(String info) { //对定位数据包的处理
+	public boolean dealPosData(String info) { //对接收到的数据包的处理
 		boolean dealFlag = false;
 		ContentExtract contentExtract = null;
 		boolean existFlag = true;
-		if(info.startsWith("J")) { //gps定位
+		if(!info.contains("bbb") || !info.contains("eee")) { //数据格式不对
+			System.out.println("dealFlag:"+dealFlag);
+			return dealFlag;
+		}
+		
+		if(info.contains("J")) { //gps定位
 			contentExtract = new ContentExtract(info);
 			contentExtract.infoParser(); //解析数据并把数据放入到contentExtract
-		} else if(info.startsWith("M")){//基站定位		
+		} else if(info.contains("M")){//基站定位		
 			JsonParser json = new JsonParser();
 			List<String> bsList = json.getBsList(info);
 			contentExtract = json.getBsInfo(bsList);
@@ -78,9 +83,22 @@ public class PacketHelper {
 			if(contentExtract!=null&&contentExtract.getLatString()!=null&&!(contentExtract.getLatString().startsWith("0"))) {
 				contentExtract = new BaiDuJsonParser().getBaiDuPositionInfo(contentExtract);
 			}
-		} else {
+		} else if(info.startsWith("bbb04") && info.length()>=15) {
+			int alarmFlag = info.charAt(5)-'0';
+			String deviceId = info.substring(6,12);
+			String telPhone = DbUtil.getPhoneNo(deviceId);
+			if(telPhone!=null) {
+				//更新该用户的报警
+				DbUtil.updateUserAlarmFlag(alarmFlag, telPhone);
+				//更新该用户下所有设备的报警发送状态
+				DbUtil.updateDeviceAlarmSendFlag(deviceId);
+			}
+			dealFlag = true;
+			return dealFlag; //不管成功与否，都不需要再处理之后的信息
+		}else {
 			return dealFlag;
 		}
+		System.out.println("dealFlag:"+dealFlag);
 		if(contentExtract!=null && contentExtract.getDeviceID()!=null && !contentExtract.getDeviceID().equals("000870") 
 				&& !contentExtract.getDeviceID().equals("000863") )
 		{
@@ -177,17 +195,18 @@ public class PacketHelper {
 	}
 	
 	public String dealInitPacket(String info) {
-		String infoString = "bbb01";
-		if(info.length()>=16) {
+		String infoString = "";
+		if(info.length()>=20) {
+			infoString += "bbb01";
 			String deviceId = info.substring(5, 11);
 			String phoneNo = DbUtil.getPhoneNo(deviceId);
 			if(phoneNo==null) {
 				return null;
 			}
-			String battery = info.substring(11,13);
-			int batteryInt = Integer.parseInt(battery);
+			String battery = info.substring(11,17);
+			
 			//update battery
-			DbUtil.updateBatteryStatus(batteryInt, deviceId);
+			DbUtil.updateBatteryStatus(battery, deviceId);
 			//报警+唤醒+围栏
 			//得到deviceId的报警+唤醒信息
 			DeviceExtraInfoObject deviceObj = DbUtil.getDeviceExtraInfo(deviceId); //得到设备警报和定位时间的是否发送的信息
@@ -208,6 +227,7 @@ public class PacketHelper {
 				//do nothing  没有围栏需要发送
 				infoString+="0";
 				infoString += obj.toString();//报警+唤醒
+				infoString += "eee";
 			} else {
 				//扇形
 				SectorBoundryObject sector = DbUtil.getSectorBoundry(phoneNo);
@@ -222,6 +242,7 @@ public class PacketHelper {
 						infoString += obj.toString();//报警+唤醒
 						infoString += polygon.toString(); //拼接多边形
 					} else {
+						return null;
 						//do nothing  进入这个部分 说明数据有问题或连接到数据库有问题
 					}
 				}
@@ -266,5 +287,13 @@ public class PacketHelper {
 			
 			}
 		}
+	}
+	
+	public void udpateStatus(String deviceId) {
+		int alarmFlag = 1;
+		int hourFlag = 1;
+		String phoneNo = DbUtil.getPhoneNo(deviceId);
+		DbUtil.updateUserExtraInfo(alarmFlag,hourFlag,deviceId);
+		DbUtil.updateIsFenceSend(deviceId);
 	}
 }

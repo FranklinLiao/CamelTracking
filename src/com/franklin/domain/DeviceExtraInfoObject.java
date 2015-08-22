@@ -77,7 +77,7 @@ public class DeviceExtraInfoObject {
 			intervalHour = 99;
 		}
 		return alarmFlag + "" + intFormat(startHour) + ""
-				+ intFormat(endHour) + "" + intFormat(intervalHour)+"eee";
+				+ intFormat(endHour) + "" + intFormat(intervalHour);
 	}
 	
 	public String intFormat(int intvalue) {
