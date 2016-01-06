@@ -12,7 +12,9 @@ import net.sf.json.JSONObject;
 
 public class JsonParser {
 	//private String apiKey = "b86e5cf5a183bb5aa589c0b8cf353428";
-	private String apiKey =   "f04b0cdc79a9c3b57751092ab66ab771";
+	//b86e5cf5a183bb5aa589c0b8cf353428
+	private String apiKey =   "b86e5cf5a183bb5aa589c0b8cf353428";
+	//private String apiKey =   "f04b0cdc79a9c3b57751092ab66ab771";
 	public List<String> getBsList(String infoString) {
 		List<String> bsInfo = new ArrayList<String>();
 		String mnc = null;

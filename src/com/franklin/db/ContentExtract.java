@@ -15,6 +15,8 @@ public class ContentExtract {
 	private String infoString = null;
 	private String deviceID = null;
 	private int status = 0;//默认是精确的   0表示精确  1表示不精确
+	
+
 	public void setDeviceID(String deviceID) {
 		this.deviceID = deviceID;
 	}

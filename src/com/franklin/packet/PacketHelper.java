@@ -25,6 +25,7 @@ import com.franklin.juhesdk.JsonParser;
 import com.franklin.server.UdpThreadList;
 
 public class PacketHelper {
+	private static int SPECIAL_PACKET = 1;
 	private static Logger logger = Logger.getLogger(PacketHelper.class);
 	private static Logger loggerTime = Logger.getLogger("lasttime");
 	public int getPacketType(String client) { //1:初始化包  2:定位包  3:确认包
@@ -37,9 +38,12 @@ public class PacketHelper {
 				type = 2;
 			} else if(client.startsWith("bbb01")) {
 				type = 1;
+			} else if(client.startsWith("bbb00")) { //初始化包
+				//特殊情况   不管有没有发送过，都发送，发送后把标志位置位
+				type = 4;
 			} else if(client.startsWith("ACK01")) {	
 				type = 3;
-			}
+			} 
 		}
 		return type;
 	}
@@ -115,7 +119,7 @@ public class PacketHelper {
 		if(!existFlag) {	//之前没有这些数据
 			String SiChuanLat=contentExtract.getLatString().toString();
 			double SiChuanLat0 = Double.parseDouble(SiChuanLat);		
-			if(SiChuanLat0>=35.0) {
+			if(SiChuanLat0>=35.0) { //不对设备所在的经纬度做限制
 				int i = 5; //不成功最多发送次数
 				long sendStartTime=System.currentTimeMillis();   
 				boolean recvFlag = false;
@@ -132,6 +136,11 @@ public class PacketHelper {
 		return dealFlag;
 	}
 
+	/**
+	 * 发送给贾博士
+	 * @param contentExtract
+	 * @return
+	 */
 	public boolean sendData(ContentExtract contentExtract) {
 		Socket socket = null;
 		PrintWriter os = null;
@@ -175,11 +184,19 @@ public class PacketHelper {
 		return recvFlag;
 	}
 	
+	/*
+	 * 拼装发送给贾博士的数据
+	 */
 	public String getInfoString(ContentExtract contentExtract) {
 		String deviceId = contentExtract.getDeviceID();
+		String battery = DbUtil.getBattery(deviceId);//得到该设备的电量
+		if(battery==null || battery.length()!=6) { //如果当前没有电量，那么设置为6个0    电量位数为6
+			battery = "000000";
+		}
 		String lonString = contentExtract.getLonString();
 		String latString = contentExtract.getLatString();
 		String time = contentExtract.getTime();
+		String status = String.valueOf(contentExtract.getStatus());
 		if(deviceId!=null&&lonString!=null&&latString!=null&&time!=null) {
 			if(time.startsWith("0")) { //time是以0开始的
 				SimpleDateFormat f = new SimpleDateFormat("yyyyMMddHHmmss");  
@@ -187,20 +204,23 @@ public class PacketHelper {
 		        time = f.format(date); //得到当前时间
 			}
 			//去除前导0
-			int deviceIdInt = Integer.parseInt(deviceId);
-			deviceId = String.valueOf(deviceIdInt);
+			//int deviceIdInt = Integer.parseInt(deviceId);
+			//deviceId = String.valueOf(deviceIdInt);
 		}
 		//J:11100.0000W:4000.0000T:"+"00000000000000"+"ID:030304
-		return "J:"+lonString+"W:"+latString+"T:"+time+"ID:"+deviceId;
+		//拼接这一块还需要和贾博士协商，加入电量和状态
+		return "J:"+lonString+"W:"+latString+"T:"+time+"ID:"+deviceId+"S:"+status+"B:"+battery;
 	}
 	
-	public String dealInitPacket(String info) {
+	public String dealInitPacket(String info,int condition) { 
+		//condition为1，已经发送了就不发  condition为2，不管有没有发送都发送
 		String infoString = "";
 		if(info.length()>=20) {
 			infoString += "bbb01";
 			String deviceId = info.substring(5, 11);
 			String phoneNo = DbUtil.getPhoneNo(deviceId);
-			if(phoneNo==null) {
+			if(phoneNo==null || phoneNo.length()!=11) {
+				//phoneNo = "00000000000"; //如果没有对应的号码或号码位数不对，那么发送11个0的电话号码
 				return null;
 			}
 			String battery = info.substring(11,17);
@@ -223,27 +243,34 @@ public class PacketHelper {
 			obj.setIsDataSend(deviceObj.getIsDataSend()); //定位时间
 			
 			int isFenceSend = DbUtil.getDeviceFenceStatus(deviceId);
-			if(isFenceSend>0) {
+			if(isFenceSend>0 && condition==SPECIAL_PACKET) { //只有在已经发送了而且不是（一直发送）的那种特殊情况时 才会不发
 				//do nothing  没有围栏需要发送
 				infoString+="0";
-				infoString += obj.toString();//报警+唤醒
+				infoString += obj.myToString(condition);//报警+唤醒
+				infoString += phoneNo;//即便没有围栏也要发送电话号码
 				infoString += "eee";
 			} else {
 				//扇形
 				SectorBoundryObject sector = DbUtil.getSectorBoundry(phoneNo);
 				if(sector!=null) {
 					infoString += "1";
-					infoString += obj.toString(); //报警+唤醒
+					infoString += obj.myToString(condition); //报警+唤醒
+					infoString += phoneNo;//电话号码
 					infoString += sector.toString(); //拼接扇形信息
 				} else {
 					PolygonBoundryObject polygon = DbUtil.getPolyonBoundry(phoneNo);
 					if(polygon!=null) {
 						infoString += "2";
-						infoString += obj.toString();//报警+唤醒
+						infoString += obj.myToString(condition);//报警+唤醒
+						infoString += phoneNo;//电话号码
 						infoString += polygon.toString(); //拼接多边形
 					} else {
-						return null;
-						//do nothing  进入这个部分 说明数据有问题或连接到数据库有问题
+						//return null;
+						//如果没有围栏，那么也要发 围栏为0 
+						infoString+="0";
+						infoString += obj.myToString(condition);//报警+唤醒
+						infoString += phoneNo;//电话号码
+						infoString += "eee";
 					}
 				}
 			}

@@ -63,7 +63,9 @@ public class TcpThreadList extends Thread {
 						
 						switch (type) {
 							case 1: { //初始化包
-								String sendInfo = packetHelper.dealInitPacket(infoString);
+								int notAlwaysSend = 1;
+								String sendInfo = packetHelper.dealInitPacket(infoString,notAlwaysSend);
+								
 								if(sendInfo!=null) {
 									pw.write(sendInfo);
 									pw.flush();
@@ -73,7 +75,26 @@ public class TcpThreadList extends Thread {
 									//更改状态
 									String deviceId = infoString.substring(5, 11);
 									packetHelper.udpateStatus(deviceId);
-								}
+								} else {
+									logger.warn("send tcp socket info:"+" is null");
+								} 
+								break;
+							}
+							case 4: { //特殊的初始化包
+								int alwaysSend = 2;
+								String sendInfo = packetHelper.dealInitPacket(infoString,alwaysSend);
+								if(sendInfo!=null) {
+									pw.write(sendInfo);
+									pw.flush();
+									
+									//pw.close();
+									logger.warn("special init,send tcp socket info:"+sendInfo);
+									//更改状态
+									String deviceId = infoString.substring(5, 11);
+									packetHelper.udpateStatus(deviceId);
+								} else {
+									logger.warn("special init,send tcp socket info:"+" is null");
+								} 
 								break;
 							}
 //							

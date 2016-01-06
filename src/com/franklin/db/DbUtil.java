@@ -39,6 +39,7 @@ public class DbUtil {
 	private static String updateDeviceAlarmSendFlagSql = "update Device set isAlarmSend = 0 where UserPhone in (select UserPhone from Device where DeviceId=?)";
 	//otherServer 贾博士
 	private static String otherServerInsertSql = "insert into t_devicetrajectory (Device,Longitude,Latitude,AddDate) value(?,?,?,?)";
+	private static String getBatterySql = "select battery from Device where DeviceId = ?";
 	//通过判断自己数据库中是否有重复数据来决定该数据是否插入贾博士和自己的数据库  因此先插贾博士数据库 然后插自己数据库
 	private static Logger insertTimeLogger = Logger.getLogger("inserttime");
 	private static int minutes = 0;
@@ -498,6 +499,52 @@ public class DbUtil {
 			e.printStackTrace();
 		}
 		return phoneNo;
+	}
+	
+	public static String getBattery(String deviceId) {
+		String battery = null;
+		ResultSet rs = null;
+		//Connection conn = DbCon.getDbConInstance().getConnection();
+		Connection conn = DbPool.getInstance().getConnection();
+		if(conn==null) {
+			return null;
+		}
+		try {
+			psmtPreparedStatement = conn.prepareStatement(getBatterySql);
+			psmtPreparedStatement.setString(1, deviceId); 
+			rs = psmtPreparedStatement.executeQuery();
+			while(rs.next()) {
+				battery = rs.getString(1);
+				break;
+			}
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
+		try {
+			if(null!=rs) {
+				rs.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+		try {
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();
+			}
+		} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+		}
+	//	DbCon.getDbConInstance().closeConnection(conn);
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return battery;
 	}
 	
 	public static int getDeviceFenceStatus(String deviceId) {

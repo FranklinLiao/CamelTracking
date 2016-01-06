@@ -1,5 +1,7 @@
 package com.franklin.domain;
 
+import java.util.zip.DataFormatException;
+
 public class DeviceExtraInfoObject {
 	private int deviceId;
 	private int alarmFlag;
@@ -66,16 +68,22 @@ public class DeviceExtraInfoObject {
 	public void setIsDataSend(int isDataSend) {
 		this.isDataSend = isDataSend;
 	}
-	@Override
-	public String toString() {
-		if(isAlarmSend>0) { //已经发送了
-			alarmFlag = 9; //设置为无效
+	//用于判断是否需要将数据设置为无效  condition为1时  根据情况设置    condition为2时，一直有效
+	public void dataFormat(int condition) {
+		if(condition==1) {
+			if(isAlarmSend>0) { //已经发送了
+				alarmFlag = 9; //设置为无效
+			}
+			if(isDataSend>0) {
+				startHour = 99;
+				endHour = 99;
+				intervalHour = 99;
+			}
 		}
-		if(isDataSend>0) {
-			startHour = 99;
-			endHour = 99;
-			intervalHour = 99;
-		}
+	}
+	
+	public String myToString(int condition) {
+		dataFormat(condition);
 		return alarmFlag + "" + intFormat(startHour) + ""
 				+ intFormat(endHour) + "" + intFormat(intervalHour);
 	}
