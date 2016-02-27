@@ -204,8 +204,8 @@ public class PacketHelper {
 		        time = f.format(date); //得到当前时间
 			}
 			//去除前导0
-			//int deviceIdInt = Integer.parseInt(deviceId);
-			//deviceId = String.valueOf(deviceIdInt);
+			int deviceIdInt = Integer.parseInt(deviceId);
+			deviceId = String.valueOf(deviceIdInt);
 		}
 		//J:11100.0000W:4000.0000T:"+"00000000000000"+"ID:030304
 		//拼接这一块还需要和贾博士协商，加入电量和状态
