@@ -115,7 +115,8 @@ public class PacketHelper {
 			}
 		}
 		//将数据通过tcp发送给贾博士
-		//existFlag = true; //测试使用
+		existFlag = true; //测试使用
+		contentExtract = DbUtil.modifyData(contentExtract); //修正数据
 		if(!existFlag) {	//之前没有这些数据
 			String SiChuanLat=contentExtract.getLatString().toString();
 			double SiChuanLat0 = Double.parseDouble(SiChuanLat);		

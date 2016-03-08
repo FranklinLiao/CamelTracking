@@ -175,6 +175,7 @@ public class ContentExtract {
 		}
 	}
 	
+	
 	/**
 	 * 用来调整偏移量      先减去之前的偏移量，然后再加上新的偏移量
 	 * @param gpsInfo

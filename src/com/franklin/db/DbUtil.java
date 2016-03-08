@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import javax.xml.crypto.Data;
+
 import org.apache.log4j.Logger;
 
 import com.franklin.domain.DeviceExtraInfoObject;
@@ -18,11 +20,13 @@ import com.franklin.domain.SectorBoundryObject;
 
 public class DbUtil {
 	private static PreparedStatement psmtPreparedStatement = null;
+	private static double EARTH_RADIUS = 6378.137;//地球半径
 	private static String insertSql = "insert into AnimalGPSSystem (DeviceId,lon,lat,date,status) values(?,?,?,?,?);";
 	private static String judgeAroundSql = "select count(*) from AnimalGPSSystem where date > ? and date < ? and DeviceId = ?";
 	private static String judgeSameSql = "select count(*) from AnimalGPSSystem where date= ? and DeviceId = ?";
 	//deviceextrainfo
 	private static String selectDeviceExtraInfoSql = "select * from Device where DeviceId = ?";
+	private static String selectAroundSql = "select lat,lon from AnimalGPSSystem where date > ? and DeviceId = ? order by date desc limt 2";
 	//userextrainfo
 	private static String selectUserExtraInfoSql = "select * from User where phoneNum=?";
 	//电子围栏 
@@ -55,6 +59,33 @@ public class DbUtil {
 		lng0 = PropertiesUtil.getLng0();
 	}
 	
+	public static ContentExtract modifyData(ContentExtract contentExtract) {
+		ContentExtract newContentExtract = contentExtract;
+		if(contentExtract==null) { //为null,就退出
+			return contentExtract;
+		}
+		String deviceId = contentExtract.getDeviceID();
+		String lonString = contentExtract.getLonString();
+		String latString = contentExtract.getLatString();
+		String time = contentExtract.getTime();
+		int status = contentExtract.getStatus();
+		if(deviceId!=null&&lonString!=null&&latString!=null&&time!=null) {
+			//对偏移量进行调整
+			lonString = new ContentExtract().modifyOffset(lonString, lng0, newlng0);
+			//对偏移量进行调整
+			latString = new ContentExtract().modifyOffset(latString, lat0, newlat0);
+			if(time.startsWith("0")) { //time是以0开始的
+				SimpleDateFormat f = new SimpleDateFormat("yyyyMMddHHmmss");  
+		        Date date = new Date();  
+		        time = f.format(date); //得到当前时间
+			} 
+			newContentExtract.setLatString(latString);
+			newContentExtract.setLonString(lonString);
+			newContentExtract.setTime(time);
+		}
+		return contentExtract;
+	}
+	
 	public static boolean insert(ContentExtract contentExtract) { 
 		boolean existflag = true;
 		//Connection conn = DbCon.getDbConInstance().getConnection();
@@ -70,10 +101,6 @@ public class DbUtil {
 			String time = contentExtract.getTime();
 			int status = contentExtract.getStatus();
 			if(deviceId!=null&&lonString!=null&&latString!=null&&time!=null) {
-				//对偏移量进行调整
-				lonString = new ContentExtract().modifyOffset(lonString, lng0, newlng0);
-				//对偏移量进行调整
-				latString = new ContentExtract().modifyOffset(latString, lat0, newlat0);
 				if(time.startsWith("0")) { //time是以0开始的
 					SimpleDateFormat f = new SimpleDateFormat("yyyyMMddHHmmss");  
 			        Date date = new Date();  
@@ -88,6 +115,11 @@ public class DbUtil {
 					long existEndTime = System.currentTimeMillis();
 				  //  insertTimeLogger.warn("SameJudge last "+(existEndTime-existStartTime)+"ms");
 				}
+				//判断数据是否有效  偏移太多的数据抛弃不用
+				if(!isValidGps(contentExtract)) {
+					existflag = true; //设置为true 抛弃无效数据
+				}
+				
 				//existflag = false; //全部插入
 				if(!existflag) { //没有则插入
 					psmtPreparedStatement = conn.prepareStatement(insertSql);
@@ -751,6 +783,89 @@ public class DbUtil {
 		return deviceExtraInfoObject;
 	}
 	
+	public static boolean isValidGps(ContentExtract contentExtract) {
+		boolean flag = true;
+		String deviceId = contentExtract.getDeviceID();
+		Double lat = Double.parseDouble(contentExtract.getLatString());
+		Double lon = Double.parseDouble(contentExtract.getLonString());
+		String time = contentExtract.getTime();
+		try {
+			SimpleDateFormat f = new SimpleDateFormat("yyyyMMddHHmmss");  
+			if(time.startsWith("0")) { //time是以0开始的
+		        Date date = new Date();  
+		        time = f.format(date); //得到当前时间
+			}
+			Date date = f.parse(time);
+			date.setMinutes(date.getMinutes() - 5); //5分钟前
+			time = f.format(date); 
+			flag = validateGps(lat, lon, deviceId, time);
+		} catch(ParseException e) {
+			flag  = true;
+			e.printStackTrace();
+		} finally {
+			return flag;
+		}
+	}
+	
+	public static boolean validateGps(Double deviceLat, Double deviceLon, String deviceId, String time) {
+		Connection conn = DbPool.getInstance().getConnection();
+		ResultSet rs = null;
+		boolean flag = true;
+		if(conn==null) {
+			return flag;
+		}
+		try {
+			psmtPreparedStatement = conn.prepareStatement(selectAroundSql);
+			psmtPreparedStatement.setString(1, time); 
+			psmtPreparedStatement.setString(2, deviceId); 
+			rs = psmtPreparedStatement.executeQuery();
+			while(rs.next()) {
+				Double lat = rs.getDouble("lat");
+				Double lon = rs.getDouble("lon");
+				flag = flag && isValidOffset(deviceLat, deviceLon, lat, lon);
+			}
+			if(null!=rs) {
+				rs.close();
+			}
+			if(null!=psmtPreparedStatement) {
+				psmtPreparedStatement.close();
+			}
+			conn.close();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			return flag;
+		}
+	}
+	
+	
+	private static double rad(double d)
+	{
+	   return d * Math.PI / 180.0;
+	} 
+
+	public static double GetDistance(double lat1, double lng1, double lat2, double lng2)
+	{
+	   double radLat1 = rad(lat1);
+	   double radLat2 = rad(lat2);
+	   double a = radLat1 - radLat2;
+	   double b = rad(lng1) - rad(lng2);
+
+	   double s = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin(a/2),2) +
+	    Math.cos(radLat1)*Math.cos(radLat2)*Math.pow(Math.sin(b/2),2)));
+	   s = s * EARTH_RADIUS;
+	   s = Math.round(s * 10000) / 10000;
+	   return s;
+	}
+	
+	public static boolean isValidOffset(Double deviceLat, Double deviceLon, Double lat, Double lon) {
+		if(GetDistance(deviceLat, deviceLon, lat, lon) >= 5) { //按照1分钟1公里计算
+			return false;
+		} else {
+			return true;
+		}
+	}
 	public static DeviceExtraInfoObject getUserExtraInfo(String phoneNum) {
 		DeviceExtraInfoObject deviceExtraInfoObject = null;
 		ResultSet rs = null;
